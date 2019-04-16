@@ -11,7 +11,7 @@ fingertable = {}
 succ = 2
 m = 5
 
-pred = 1
+pred = 2
 def listening():
     s = socket.socket()
     print ("Socket successfully created")
