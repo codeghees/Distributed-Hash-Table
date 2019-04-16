@@ -10,6 +10,8 @@ import sys
 fingertable = {}
 succ = 2
 m = 5
+
+pred = 0
 def listening():
     s = socket.socket()
     print ("Socket successfully created")
