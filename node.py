@@ -8,7 +8,7 @@ import queue
 import sys
 
 fingertable = {}
-succ = 1
+succ = 2
 m = 4
 def listening():
     s = socket.socket()
