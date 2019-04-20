@@ -26,22 +26,33 @@ def listening():
         print ('Got connection from', addr)
      
 
-def interface():
+def interface(port,myport):
     print("Interface thread is running")
+    
+    s = socket.socket()		 
+    s.connect((sys.argv[1], port)) 
     while True:
         x = 0
         x+=1
     print("Interface is over")
 
 def main(port, otherport = None):
+    if otherport != None:
+        t1 = threading.Thread(target=interface, args=(otherport,port)) 
+        t1.start()
+        t1.join()
+    s = socket.socket()
+    print ("Socket successfully created")
+    s.bind(("", port))		 
+    print ("socket binded to =" ,port)
+    s.listen(10)	 
+    print ("socket is listening")	
+    while True:
+        c, addr = s.accept()	 
+        print(c)
+        print ('Got connection from', addr)
+     
 
-
-    t1 = threading.Thread(target=listening, args=()) 
-    t2 = threading.Thread(target=interface, args=()) 
-    t1.start()
-    t2.start()
-    t1.join()
-    t2.join()
 
 
 if __name__=="__main__":
