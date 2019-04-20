@@ -33,7 +33,9 @@ def interface():
         x+=1
     print("Interface is over")
 
-def main():
+def main(port, otherport = None):
+
+
     t1 = threading.Thread(target=listening, args=()) 
     t2 = threading.Thread(target=interface, args=()) 
     t1.start()
@@ -43,6 +45,6 @@ def main():
 
 
 if __name__=="__main__":
-	main()
+        main(1200)
 
 
