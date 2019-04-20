@@ -7,29 +7,12 @@ import time
 import queue 
 import sys
 
-fingertable = {}
-succ = 2
-m = 5
-
-pred = 1
-def listening():
-     print ("Listening")
-     while True:
-        x = 0
-        
-
-
-        
-# python node.py 1300
 def interface(port,myport):
     print("Interface thread is running")
     
     s = socket.socket()		 
-
-
-    
     s.connect(("127.0.0.1", port))
-      while True:
+    while True:
       connectionmsg = s.recv(1024)
       connectionmsg = pickle.loads(connectionmsg) 
       print(connectionmsg)
@@ -42,7 +25,7 @@ def main(port, otherport = None):
     if otherport != None:
         t1 = threading.Thread(target=interface, args=(otherport,port)) 
         t1.start()
-        t1.join()
+        
     s = socket.socket()
     print ("Socket successfully created")
     s.bind(("", port))		 
@@ -54,8 +37,11 @@ def main(port, otherport = None):
         print(addr)
         print ('Got connection from', addr)
         c.send(pickle.dumps("Hello Paein"))
+        
+        
+    t1.join()
 
-        c.close()
+        
      
 
 
