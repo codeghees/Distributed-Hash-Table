@@ -45,6 +45,11 @@ def main(port, otherport = None):
 
 
 if __name__=="__main__":
-        main(1200)
+        myportnumber = int(sys.argv[1])
+        knownport = int(input("Enter the port number if anyother port is known, -1 if None"))
+        if knownport == -1:
+                main(myportnumber)
+        else:
+                main(myportnumber,knownport)
 
 
