@@ -13,28 +13,30 @@ m = 5
 
 pred = 1
 def listening():
-    s = socket.socket()
-    print ("Socket successfully created")
-    port = int(sys.argv[1])
-    s.bind(("127.0.0.1", port))		 
-    print ("socket binded to =" ,port)
-    s.listen(5)	 
-    print ("socket is listening")	
-    while True:
-        c, addr = s.accept()	 
-        print(c)
-        print ('Got connection from', addr)
-     
+     print ("Listening")
+     while True:
+        x = 0
+        
 
+
+        
+# python node.py 1300
 def interface(port,myport):
     print("Interface thread is running")
     
     s = socket.socket()		 
-    s.connect((sys.argv[1], port)) 
-    while True:
-        x = 0
-        x+=1
+
+
+    
+    s.connect(("127.0.0.1", port))
+      while True:
+      connectionmsg = s.recv(1024)
+      connectionmsg = pickle.loads(connectionmsg) 
+      print(connectionmsg)
+    
     print("Interface is over")
+    s.close()
+  
 
 def main(port, otherport = None):
     if otherport != None:
@@ -49,15 +51,18 @@ def main(port, otherport = None):
     print ("socket is listening")	
     while True:
         c, addr = s.accept()	 
-        print(c)
+        print(addr)
         print ('Got connection from', addr)
+        c.send(pickle.dumps("Hello Paein"))
+
+        c.close()
      
 
 
 
 if __name__=="__main__":
         myportnumber = int(sys.argv[1])
-        knownport = int(input("Enter the port number if anyother port is known, -1 if None"))
+        knownport = int(input("Enter the port number if anyother port is known, -1 if None \npyth"))
         if knownport == -1:
                 main(myportnumber)
         else:
