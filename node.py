@@ -17,6 +17,8 @@ class Node:
       self.fingerTable = {}
    def setsucc(self,succ):
            self.successor = succ
+   def setpred(self,predd):
+           self.pred = predd        
    def AddtoDHT(self,NewPort):
            #Client is Requesting to connect with DHT
            Client = socket.socket()
@@ -42,9 +44,26 @@ class Node:
            if self.successor == self.Port and self.pred == self.Port :
                    return True
            return False
+def JoinDHT(ClientNode,Port,ServerNodeClass):
+        if ServerNodeClass.IfOnlyNode == True:
+                ClientNode.send("FirstNode")
+                ServerNodeClass.setsucc(Port)
+                ServerNodeClass.setpred(Port)
+        else:
+                print("Third Node")
+
+        return
 def ServerThread(ClientNode, ServerNodeClass):
-     #Add check if Only node in client
-     return
+        Message = ClientNode.recv(1024)
+        ClientNode.send("Connected")
+        Port = int(ClientNode.recv(1024))
+
+        if Message == "JoinRequest":
+                JoinDHT(ClientNode,Port,ServerNodeClass)
+
+        print("Connected with = ", Port )
+        ClientNode.close()
+        return
      
 
 
@@ -67,7 +86,8 @@ def main(port, otherport = None):
                 print(addr)
                 print ('Got connection from', addr)
                 Server = threading.Thread(target=ServerThread, args=(c,NodeObj)) 
-
+                
+    Server.join()   
           
     
         
