@@ -29,22 +29,24 @@ class Node:
            if ConnectMsg == "Connected":
               Client.send(str(NewPort))
               OnlyNode = str(Client.recv(1024))
+
               if OnlyNode == "FirstNode":
                       self.successor = NewPort
                       self.pred = NewPort
-
+              print("Two Nodes Connected")
            else:
-                return
+
+                Client.close()
                 #Not The Only Node
         
 
-
-
    def IfOnlyNode(self):
+           #First Node Check
            if self.successor == self.Port and self.pred == self.Port :
                    return True
            return False
 def JoinDHT(ClientNode,Port,ServerNodeClass):
+        #Makes the ring
         if ServerNodeClass.IfOnlyNode == True:
                 ClientNode.send("FirstNode")
                 ServerNodeClass.setsucc(Port)
@@ -54,6 +56,7 @@ def JoinDHT(ClientNode,Port,ServerNodeClass):
 
         return
 def ServerThread(ClientNode, ServerNodeClass):
+        #Running on Server, updates the Server Class Node
         Message = ClientNode.recv(1024)
         ClientNode.send("Connected")
         Port = int(ClientNode.recv(1024))
@@ -102,3 +105,11 @@ if __name__ == '__main__':
                 main(myportnumber,knownport)
 
 
+
+'''
+Things to do:
+- Hashing
+- Testing for two Nodes
+- Join Three nodes
+- Complete ring
+'''
