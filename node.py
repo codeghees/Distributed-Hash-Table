@@ -17,6 +17,8 @@ class Node:
       self.secSucc = Port
       self.Hashkey = hashPort(str(Port))
       self.fingerTable = np.ones((M,2))
+      self.files = []
+      
    def setsucc(self,succ):
            self.successor = succ
    def setpred(self,predd):
@@ -25,6 +27,7 @@ class Node:
    def print(self):
            print("My pred is" , self.pred)
            print("My succ is", self.successor)
+           print("My Second succ is", self.secSucc)
            print("My port is ", self.Port)
            print("\n")
    def IfSpaceFound(self,KnownPort,PredPort):
@@ -119,6 +122,32 @@ def UpdateServer(ServerNodeClass,Port):
                 ServerNodeClass.pred = Port
         PredSocket.close()
         return
+def UpdateSecondSuccs(ClientNode,ServerNodeClass):
+        '''
+        First you need to update second Successor of your own
+        then update Second Succ of your pred
+        '''
+        SuccSocket =  socket.socket()
+        SuccSocket.connect((ip,ServerNodeClass.successor))
+        SuccSocket.send(pickle.dumps("SS"))
+        Msg = SuccSocket.recv(1024)
+        print(pickle.loads(Msg))
+        SuccSocket.send(pickle.dumps(ServerNodeClass.Port))
+        SecondSuccessor = int(pickle.loads(SuccSocket.recv(1024)))
+        ServerNodeClass.secSucc = SecondSuccessor
+
+        SuccSocket.close()
+        print("Updating Second Succ of (pred)", ServerNodeClass.pred)
+        PredSocket = socket.socket()
+        PredSocket.connect((ip,ServerNodeClass.pred))
+        PredSocket.send(pickle.dumps("SSS"))
+        Msg = PredSocket.recv(1024)
+        print(pickle.loads(Msg))
+        PredSocket.send(pickle.dumps(ServerNodeClass.Port))
+        PredSocket.send(pickle.dumps(ServerNodeClass.successor))
+        PredSocket.close()
+
+        return
 def UpdateServerLinks(ClientNode,ServerNodeClass):
         print("My Successor is updating...")
         # ServerNodeClass.print()
@@ -128,6 +157,8 @@ def UpdateServerLinks(ClientNode,ServerNodeClass):
 
         ServerNodeClass.setsucc(NewSuccessor)
         ClientNode.send(pickle.dumps("SuccessorUpdated"))
+        UpdateSecondSuccs(ClientNode,ServerNodeClass) # This updates second successor for both the current node AND the predecessor of current node
+
         ClientNode.close()
         return
 def JoinDHT(ClientNode,Port,ServerNodeClass):
@@ -158,6 +189,15 @@ def JoinDHT(ClientNode,Port,ServerNodeClass):
 
         ServerNodeClass.print()
         return
+                
+def updateSecondSuccessor(ClientNode,ServerNodeClass):
+        print("My Second Successor is being updated")
+        SecondSucc = int(pickle.loads(ClientNode.recv(1024)))
+        ServerNodeClass.secSucc = SecondSucc
+        return
+def sendSuccessor(ClientNode, ServerNodeClass):
+        ClientNode.send(pickle.dumps(ServerNodeClass.successor))
+        return
 def ServerThread(ClientNode, ServerNodeClass):
         #Running on Server, updates the Server Class Node
         Message = pickle.loads(ClientNode.recv(1024))
@@ -167,9 +207,19 @@ def ServerThread(ClientNode, ServerNodeClass):
            
         if Message == "JoinRequest":
                 JoinDHT(ClientNode,Port,ServerNodeClass)
+                UpdateSecondSuccs(ClientNode,ServerNodeClass) # This updates second successor for both the current node AND the predecessor of current node
+
         elif Message == "UpdateServer":
                 print("Called by ", Port)
                 UpdateServerLinks(ClientNode,ServerNodeClass)
+
+        elif Message == "SS":
+                sendSuccessor(ClientNode,ServerNodeClass)
+        elif Message == "SSS":
+                updateSecondSuccessor(ClientNode,ServerNodeClass)
+
+
+
         ServerNodeClass.print()
         print("Connected with = ", Port )
         ClientNode.close()
@@ -178,7 +228,7 @@ def ServerThread(ClientNode, ServerNodeClass):
 
 
 def main(port, otherport = None):
-    global NodeObj
+#     global NodeObj
 
     NodeObj = Node(port)
     print(NodeObj.successor)
@@ -217,7 +267,7 @@ if __name__ == '__main__':
         myportnumber = int(sys.argv[1])
         hashPort(str(myportnumber))
         
-        knownport = int(input("Enter the port number if anyother port is known, -1 if None \npyth"))
+        knownport = int(input("Enter the port number if anyother port is known, -1 if None \n"))
         if knownport == -1:
                 main(myportnumber)
         else:
@@ -229,6 +279,10 @@ if __name__ == '__main__':
 Things to do:
 - Hashing
 - Testing for two Nodes DONE
-- Join Three nodes
-- Complete ring
+- Join Three nodes DONE
+- Complete ring DONE
+- Second Successor DONE
+- Files get and Put
+- Leaving
+- Failure 
 '''
