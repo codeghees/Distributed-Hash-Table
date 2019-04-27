@@ -15,7 +15,7 @@ class Node:
       self.successor = Port
       self.pred = Port
       self.secSucc = Port
-      self.Hashkey = hashPort(Port)
+      self.Hashkey = hashPort(str(Port))
       self.fingerTable = np.ones((M,2))
    def setsucc(self,succ):
            self.successor = succ
@@ -26,7 +26,27 @@ class Node:
            print("My pred is" , self.pred)
            print("My succ is", self.successor)
            print("My port is ", self.Port)
-                           
+           print("\n")
+   def IfSpaceFound(self,KnownPort,PredPort):
+           KnownPortKey = hashPort(str(KnownPort))
+           PredPortKey = hashPort(str(PredPort))
+           Ownkey = self.Hashkey
+           
+           if Ownkey < KnownPortKey:
+                   if (KnownPortKey>PredPortKey) and (Ownkey > PredPortKey):
+                        #Handle The case when no looping around linear chain basically
+                           return True
+                   if (KnownPortKey < PredPortKey) and (PredPortKey > Ownkey):
+                        #Handle The case when looping around
+                           return True
+
+           elif Ownkey > KnownPortKey:
+                   if (KnownPortKey<PredPortKey) and (Ownkey > PredPortKey):
+                        #Handle The other half of the loop
+                           return True
+
+
+           return False                        
    def AddtoDHT(self,NewPort):
            #Client is Requesting to connect with DHT
            #Client is running
@@ -49,22 +69,28 @@ class Node:
                       # Not the first node
                       # Write join conditions
                       Client.send(pickle.dumps("Send Pred"))
-                      Pred = int(pickle.loads(Client.recv(1024)))
-                      PredKey = hashPort(Pred)
+                      PredPort = int(pickle.loads(Client.recv(1024)))
                       '''
                       First check if it lies between pred and known node
+                      Else RECURSIVELY Call on the next available node 
                       '''
-                      
+                      if self.IfSpaceFound(NewPort,PredPort) == True:
+                              self.successor =  NewPort
+                              self.pred = PredPort
+                              Client.send(pickle.dumps("Connected"))
 
-
-
-
-
+                      else:
+                              print("Finding Successor of Known Node")
+                              Client.send(pickle.dumps("SendSucc"))
+                              SuccPort = int(pickle.loads(Client.recv(1024)))
+                              self.AddtoDHT(SuccPort)
                       
            else:
-
-                Client.close()
-                #Not The Only Node
+                Client.close()   
+                return   
+           self.print()
+           Client.close()
+           return
         
 
    def IfOnlyNode(self):
@@ -73,6 +99,37 @@ class Node:
                    print("I am the only Node")
                    return True
            return False
+def UpdateServer(ServerNodeClass,Port):
+        '''
+        Open Connection with Predecessor of Current Server, tell it about it's new Successor
+        Also update the predeccesor of the Server
+        '''
+        PredSocket = socket.socket()
+        PredSocket.connect((ip,ServerNodeClass.pred))
+        print("Connecting with Pred", ServerNodeClass.pred)
+        PredSocket.send(pickle.dumps("UpdateServer"))
+        ACK = pickle.loads(PredSocket.recv(1024))
+        print("ACK = ", ACK)
+        PredSocket.send(pickle.dumps(ServerNodeClass.Port))
+        print("X")
+        PredSocket.send(pickle.dumps(Port))
+        Msg = pickle.loads(PredSocket.recv(1024))
+        if Msg == "SuccessorUpdated":
+                print("Succ of Pred updated \n updating my pred")
+                ServerNodeClass.pred = Port
+        PredSocket.close()
+        return
+def UpdateServerLinks(ClientNode,ServerNodeClass):
+        print("My Successor is updating...")
+        # ServerNodeClass.print()
+        NewSuccessor = int(pickle.loads(ClientNode.recv(1024)))
+        print("XXX")
+
+
+        ServerNodeClass.setsucc(NewSuccessor)
+        ClientNode.send(pickle.dumps("SuccessorUpdated"))
+        ClientNode.close()
+        return
 def JoinDHT(ClientNode,Port,ServerNodeClass):
         #Makes the ring
         #Running on the server
@@ -89,24 +146,35 @@ def JoinDHT(ClientNode,Port,ServerNodeClass):
                 if Msg == "Send Pred":
                         Pred = ServerNodeClass.pred
                         ClientNode.send(pickle.dumps(Pred))
+                        Msg2 = pickle.loads(ClientNode.recv(1024))
+                        if Msg2 == "Connected":
+                                print("Connection made")
+                                UpdateServer(ServerNodeClass,Port)
+                        if Msg2 == "SendSucc":
+                                ClientNode.send(pickle.dumps(ServerNodeClass.successor))
 
+                                
+                        
 
+        ServerNodeClass.print()
         return
 def ServerThread(ClientNode, ServerNodeClass):
         #Running on Server, updates the Server Class Node
         Message = pickle.loads(ClientNode.recv(1024))
         ClientNode.send(pickle.dumps("Connected"))
         Port = int(pickle.loads(ClientNode.recv(1024)))
-        print("Message = ", Port)
+        print("Connection from = ", Port)
            
         if Message == "JoinRequest":
                 JoinDHT(ClientNode,Port,ServerNodeClass)
-        
-
+        elif Message == "UpdateServer":
+                print("Called by ", Port)
+                UpdateServerLinks(ClientNode,ServerNodeClass)
+        ServerNodeClass.print()
         print("Connected with = ", Port )
         ClientNode.close()
         return
-     
+  
 
 
 def main(port, otherport = None):
@@ -148,7 +216,7 @@ if __name__ == '__main__':
         
         myportnumber = int(sys.argv[1])
         hashPort(str(myportnumber))
-        quit()
+        
         knownport = int(input("Enter the port number if anyother port is known, -1 if None \npyth"))
         if knownport == -1:
                 main(myportnumber)
