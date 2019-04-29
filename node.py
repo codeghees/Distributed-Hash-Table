@@ -30,12 +30,19 @@ class Node:
                         return True
            return False     
 
+   def Leave(self):
+           '''
+           - Tell pred you are leaving
+           - Tell Succ you are leaving
+           - No need to worry about files
+           '''     
 
+           return     
    def print(self):
-           print("My pred is" , self.pred)
-           print("My succ is", self.successor)
-           print("My Second succ is", self.secSucc)
-           print("My port is ", self.Port)
+           print("My pred is" , self.pred, " hash = ", hashPort(str(self.pred)))
+           print("My succ is", self.successor, " hash = ", hashPort(str(self.successor)))
+           print("My Second succ is", self.secSucc, " hash = ", hashPort(str(self.secSucc)))
+           print("My port is ", self.Port, " hash = ", hashPort(str(self.Port)))
            print("My files are =", self.files)
            print("\n")
    def IfSpaceFound(self,KnownPort,PredPort):
@@ -96,7 +103,10 @@ class Node:
                    if self.IfFilePutHere(HashFile) == True:
                            if self.CheckIfExist(FileName) == False:
                                 self.files.append(FileName)
+
                                 print("Added to client")
+                                PutFilesSucc(FileName, self.successor, self.Port) #SendFilesToSucc
+
                            else:
                                    print("File exists already")
                            return
@@ -115,6 +125,50 @@ class Node:
 
      
            return
+   def KeepBackup(self,ClientNode):
+           '''
+           Runs on Server, the successor node.
+           Keeps copies
+           Put at server
+           '''
+           FileName = str(pickle.loads(ClientNode.recv(1024)))
+           print("File - ",FileName)     
+           HashFile = hashPort(FileName)
+           print("Putting AT successor...")
+           ClientNode.send(pickle.dumps("FileSend"))
+           # READ FILE CODE GOES HERE
+           # Tell Client to send file via sockets
+           if self.CheckIfExist(FileName) == False:
+
+        
+                sizeofFile  = float(pickle.loads(ClientNode.recv(1024)))
+                print("File size is = ", sizeofFile)
+                W_byts  = ClientNode.recv(1024)
+                Filen = os.path.join("backup",FileName)
+                print("New Filename = ", Filen)
+                FileOb = open(Filen,"wb")
+                FileOb.write(W_byts)
+                basesize = len(W_byts)
+                while basesize<sizeofFile:
+                        W_byts = ClientNode.recv(1024)
+                        basesize = basesize + len(W_byts)
+                        FileOb.write(W_byts)
+                FileOb.close()
+                self.files.append(FileName)        
+                print("Added to Node")
+           else:
+                        print("File exists already")
+
+        # self.files.append(FileName)
+           print("File has been added")
+           return
+       
+           
+
+
+
+           
+                   
    def GetAtClient(self):
            '''
            -Running on Client
@@ -177,6 +231,8 @@ class Node:
                      
                 # self.files.append(FileName)
                 print("File has been added")
+                PutFilesSucc(FileName, self.successor, self.Port) #SendFilesToSucc
+
                 return
            else:
                 '''
@@ -279,7 +335,7 @@ class Node:
                                         print("File Does Not Exist")
                            else:
                                    print("File does not exists")
-                                   ClientNode.send("FileNot")
+                                   ClientNode.send(pickle.dumps("FileNot"))
                      
                 # self.files.append(FileName)
                 return
@@ -395,6 +451,46 @@ def PutSucc(Filename, SuccPort, ServerPort):
 
 
 
+def PutFilesSucc(Filename, SuccPort, ServerPort):
+        '''
+        - Running On Client
+        - Send File
+        - Sends files to successor for back up
+        '''
+        while True:
+                SockSuc = socket.socket()
+                SockSuc.connect((ip,SuccPort))
+                SockSuc.send(pickle.dumps("PutSucc"))
+                Msg = pickle.loads(SockSuc.recv(1024))
+                if Msg == "Connected":
+                        SockSuc.send(pickle.dumps(ServerPort))
+                        SockSuc.send(pickle.dumps(Filename))
+                        Msg2 = pickle.loads(SockSuc.recv(1024))
+                        if Msg2 == "FileSend":
+                                print("MSG2 received")
+                                #Sending File code goes here
+                                size = os.path.getsize(Filename)
+                                SockSuc.send(pickle.dumps(size)) #Send File
+                                print("Size of File sent", size)
+                                
+                                FileObj = open(Filename,"rb")
+                                byts = FileObj.read(1024)
+                                SockSuc.send(byts)
+                                while (byts):
+                                        byts = FileObj.read(1024)
+                                        SockSuc.send(byts)
+                                FileObj.close()        
+                                return
+                        elif Msg2 == "Sending Successor":
+                                print("Req forwarded, waiting for Succ")
+                                SockSuc.send(pickle.dumps("OK_S"))
+                                SuccPort = int(pickle.loads(SockSuc.recv(1024)))
+                                print("Succ received")
+
+
+
+
+
 
 
 
@@ -494,7 +590,7 @@ def SendFiles(ServerNodeClass):
                 predhash = hashPort(str(ServerNodeClass.pred))
                 if FileHash<predhash:
                         PutSucc(filee,ServerNodeClass.pred, ServerNodeClass.Port)
-                        ServerNodeClass.files.remove(filee)
+                        # ServerNodeClass.files.remove(filee)
 
 def updateSecondSuccessor(ClientNode,ServerNodeClass):
         print("My Second Successor is being updated")
@@ -529,6 +625,9 @@ def ServerThread(ClientNode, ServerNodeClass):
         elif Message == "GetReq":
                 print("Get Req made by = ", Port)
                 ServerNodeClass.GetFromServer(ClientNode)
+        elif Message == "PutSucc":
+                print("Put Req Succ made by = ", Port)
+                ServerNodeClass.KeepBackup(ClientNode)
 
 
         print("Server info:")
@@ -547,8 +646,10 @@ def ClientInterface(NodeObj):
                         NodeObj.GetAtClient()
                 elif Query == 3:
                         NodeObj.print()
-                else:
-                        break
+                elif Query == 4:
+                        NodeObj.leave()
+                        exit()
+                        
                 
 
                    
@@ -611,8 +712,11 @@ Things to do:
 - Join Three nodes DONE
 - Complete ring DONE
 - Second Successor DONE
-- Files get and Put
+- Files get and Put DONE
 - Send files to pred on connection DONE
-- Leaving
+- Leaving 
+        - Make a function that sends files to successor
+        - call it during join
+        
 - Failure 
 '''
