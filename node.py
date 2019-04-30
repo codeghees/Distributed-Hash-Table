@@ -8,6 +8,7 @@ import queue
 import hashlib
 import sys
 import os
+import time
 M = 5
 ip = "127.0.0.1"
 class Node:
@@ -35,7 +36,40 @@ class Node:
            - Tell pred you are leaving
            - Tell Succ you are leaving
            - No need to worry about files
-           '''     
+           '''
+           if self.IfOnlyNode() == True:
+                   print("Leaving")
+                   exit()
+           for files in self.files:
+                   PutFilesSucc(files, self.successor, self.Port)
+           #Deal with Successor
+           SuccSock = socket.socket()
+           SuccSock.connect((ip, self.successor))
+           SuccSock.send(pickle.dumps("PredLeave"))
+           Msg = pickle.loads(SuccSock.recv(1024))
+           SuccSock.send(pickle.dumps(self.Port))
+           Msg = pickle.loads(SuccSock.recv(1024))
+           # Connection Made
+           if Msg == "Leave":
+                print("leaving")
+                SuccSock.close()
+           else:
+                   SuccSock.send(pickle.dumps(self.pred))
+                   SuccSock.close()
+           #Deal with Pred
+           PredSock = socket.socket()
+           PredSock.connect((ip, self.pred))
+           PredSock.send(pickle.dumps("SuccLeave"))
+           Msg = pickle.loads(PredSock.recv(1024))
+           PredSock.send(pickle.dumps(self.Port))
+           # Connection Made
+           PredSock.send(pickle.dumps(self.successor))
+           PredSock.close()
+           print("leaving")
+           exit()
+
+           
+
 
            return     
    def print(self):
@@ -628,6 +662,28 @@ def ServerThread(ClientNode, ServerNodeClass):
         elif Message == "PutSucc":
                 print("Put Req Succ made by = ", Port)
                 ServerNodeClass.KeepBackup(ClientNode)
+        elif Message == "PredLeave":
+                #Pred leaving
+                #Check if Only one node left
+                if (ServerNodeClass.successor == ServerNodeClass.pred) and (ServerNodeClass.successor == Port):
+                        ServerNodeClass.successor = ServerNodeClass.Port
+                        ServerNodeClass.pred = ServerNodeClass.Port
+                        print("ServerReset")
+                        ClientNode.send(pickle.dumps("Leave"))
+                else:
+                        print("SEND PRED b4 leaving")
+                        ClientNode.send(pickle.dumps("SendPred"))
+                        predd = pickle.loads(ClientNode.recv(1024))
+                        ServerNodeClass.pred = predd
+                        UpdateSecondSuccs(ClientNode,ServerNodeClass)
+        elif Message == "SuccLeave":
+                succ = pickle.loads(ClientNode.recv(1024))
+                ServerNodeClass.successor = succ
+                UpdateSecondSuccs(ClientNode,ServerNodeClass)
+        elif Message == "Ping":
+                ClientNode.send(pickle.dumps("Ping"))
+        elif Message == "NewPred":
+                ServerNodeClass.pred = Port
 
 
         print("Server info:")
@@ -635,20 +691,60 @@ def ServerThread(ClientNode, ServerNodeClass):
         print("Connected with = ", Port )
         ClientNode.close()
         return
+def Ping(NodeObj):
+        count = 0
+        while True:
+               time.sleep(5)
+
+               if NodeObj.IfOnlyNode() == False: 
+                        try:
+                                sock =  socket.socket()
+                                sock.connect((ip,NodeObj.successor))
+                                sock.send(pickle.dumps("Ping"))
+                                Ack = pickle.loads(sock.recv(1024))
+                                sock.send(pickle.dumps(NodeObj.Port))
+                                Msg = pickle.loads(sock.recv(1024))
+                                if Msg == "Ping":
+                                        count = 0
+                                sock.close()
+                        except socket.error as err:
+                                print("ping failed", err)
+                                count = count + 1
+                        if count == 3:
+                                sock = socket.socket()
+                                sock.connect((ip,NodeObj.secSucc))
+                                sock.send(pickle.dumps("NewPred"))
+                                Msg = pickle.loads(sock.recv(1024))
+                                sock.send(pickle.dumps(NodeObj.Port))
+                                NodeObj.successor = NodeObj.secSucc
+                                UpdateSecondSuccs(sock,NodeObj)
+                                for files in NodeObj.files:
+                                        PutFilesSucc(files, NodeObj.successor, NodeObj.Port)
+
+                                
+
+
+        return
 def ClientInterface(NodeObj):
 
         # F _ R
+        Client = threading.Thread(target=Ping, args=(NodeObj,)) 
+        Client.start()
+          
         while True:
-                Query = int(input("Enter your query \n 1.Put\n 2.Get\n 3.Print 4. Leave\n"))
-                if Query == 1:
+                Query = (input("Enter your query \n 1.Put\n 2.Get\n 3.Print 4. Leave\n"))
+                if Query == "1":
                         NodeObj.PutAtClient()
-                elif Query == 2:
+                elif Query == "2":
                         NodeObj.GetAtClient()
-                elif Query == 3:
+                elif Query == "3":
                         NodeObj.print()
-                elif Query == 4:
-                        NodeObj.leave()
-                        exit()
+                elif Query == "4":
+                        NodeObj.Leave()
+                        return
+                else:
+                        continue
+                        
                         
                 
 
@@ -718,5 +814,5 @@ Things to do:
         - Make a function that sends files to successor
         - call it during join
         
-- Failure 
+- Failure DONE 
 '''
